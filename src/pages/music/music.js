@@ -5,6 +5,7 @@ import _ from 'lodash'
 import DTitle from 'react-document-title'
 import font from 'font-awesome/css/font-awesome.min.css'
 
+import {AutoComplete, Input, Icon,} from 'antd';
 
 @connect((state) => {
   return {
@@ -16,7 +17,11 @@ class Page extends React.Component {
 
   constructor(props) {
     super(props)
-    this.state = {}
+    this.state = {
+      songSearchList: [],
+      songSearchValue: ''
+    }
+
 
     this.volumeValue = 1
   }
@@ -36,6 +41,11 @@ class Page extends React.Component {
 
     this.canvasDraw()
 
+
+    this.xhr('songSearch', '落花').then((data) => {
+      let songs = _.get(data, 'data.result.songs', [])
+      console.log(`songs`, songs);
+    })
   }
 
   componentDidUpdate() {
@@ -68,6 +78,16 @@ class Page extends React.Component {
       payload: {
         moduleName,
         data,
+      },
+    })
+  }
+
+  xhr = (moduleName, params) => {
+    return this.props.dispatch({
+      type: 'music/xhr',
+      payload: {
+        moduleName,
+        params,
       },
     })
   }
@@ -254,7 +274,7 @@ class Page extends React.Component {
 
   /*
   * 将lrc格式化输出
-  * {time:'11',value:'我有花一朵'}
+  * [{time:'11',value:'我有花一朵'}, ... ]
   * */
   formatLrc = (lrcStr) => {
     return lrcStr.split(/\[/gi).map((n, i) => {
@@ -273,6 +293,31 @@ class Page extends React.Component {
     })
   }
 
+
+  /*
+  * 歌曲搜索
+  * */
+  songSearch = (value) => {
+    this.setState({
+      songSearchValue: value
+    })
+    this.xhr('songSearch', value).then((data) => {
+      let songs = _.slice(_.get(data, 'data.result.songs', []), 0, 10)
+      this.setState({
+        songSearchList: songs
+      })
+    })
+  }
+
+  /*
+  * 选中搜索框中的某个值
+  * */
+  songSelect = (value) => {
+    this.setState({
+      songSearchValue: value
+    })
+  }
+
   render() {
     console.log(`this.props`, this.props);
     let playInfo = this.props.playInfo
@@ -288,8 +333,20 @@ class Page extends React.Component {
             <div className={styles.header}>
               <div className={styles.title}>WELCOME</div>
               <div className={styles.search}>
-                <input type="text" placeholder="请输入要搜索的歌曲..."/>
-                <a href="javascript:void(0)" title="搜索" id="search"/>
+                {/*<input type="text" placeholder="请输入要搜索的歌曲..."/>*/}
+                {/*<a href="javascript:void(0)" title="搜索" id="search"/>*/}
+                <AutoComplete
+                  dataSource={this.state.songSearchList}
+                  style={{width: 200}}
+                  value={this.state.songSearchValue}
+                  onSelect={this.songSelect}
+                  onSearch={this.songSearch}
+                  placeholder="请输入歌曲名称"
+                >
+                  {_.map(this.state.songSearchList, (n) => {
+                    return <AutoComplete.Option key={n.id}>{`${n.name} ${n.alia.join('')}`}</AutoComplete.Option>
+                  })}
+                </AutoComplete>
               </div>
               <div className={styles.close}><i className={'fa fa-close'}></i></div>
             </div>
