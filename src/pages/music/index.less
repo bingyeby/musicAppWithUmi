@@ -65,8 +65,9 @@ html {
     color: #fff;
     transition: transform 1s ease;
     cursor: pointer;
+    margin-right: 10px;
     &:hover {
-      transform: rotate(360deg);
+      transform: scale(1.2);
       transform-origin: 50% 50%;
     }
 
@@ -76,7 +77,7 @@ html {
   height: 300px;
   display: flex;
   .left {
-    flex: 0 1 200px;
+    flex: 1 0 150px;
   }
   .right {
     width: 100%;
@@ -100,12 +101,16 @@ html {
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   background: white;
   height: 60px;
   .playOpt {
     display: flex;
+    width: 150px;
+    justify-content: center;
+    align-items: center;
+    color: rgba(0, 0, 0, 0.50);
     & > div {
+      margin: 0 5px;
       cursor: pointer;
     }
   }
@@ -121,9 +126,12 @@ html {
   }
 
   .volumeSwitch {
-
+    width: 50px;
+    text-align: center;
+    cursor: pointer;
   }
   .volumeSize {
+    margin-right: auto;
     width: 300px;
     height: 100%;
     padding: 29px 0;
@@ -163,6 +171,13 @@ html {
       top: 0px;
       right: 0px;
       color: #959095;
+    }
+  }
+  .collect {
+    margin-right: 10px;
+    cursor: pointer;
+    &:active {
+      color: red;
     }
   }
 

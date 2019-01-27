@@ -3,6 +3,8 @@ import styles from './index.less';
 import React from 'react'
 import _ from 'lodash'
 import DTitle from 'react-document-title'
+import font from 'font-awesome/css/font-awesome.min.css'
+
 
 @connect((state) => {
   return {
@@ -12,12 +14,12 @@ import DTitle from 'react-document-title'
 })
 class Page extends React.Component {
 
-
   constructor(props) {
     super(props)
     this.state = {}
-  }
 
+    this.volumeValue = 1
+  }
 
   componentDidMount() {
     this.audio = this.refs.audio
@@ -41,6 +43,12 @@ class Page extends React.Component {
       this.audio.play()
     } else {
       this.audio.pause();
+    }
+
+    if (this.props.settings.volumeOpen) {
+      this.audio.volume = this.volumeValue
+    } else {
+      this.audio.volume = 0
     }
   }
 
@@ -104,15 +112,15 @@ class Page extends React.Component {
 
       let num = 1000;// 抽样数
       let step = Math.round(byteData.length / num);// 步长
-      let stepWith = 0.3
+      let stepWith = 0.38
       for (let i = 0; i < num; i++) {
         let value = (byteData[step * i]) / 2;
         cxt.fillStyle = color;
-        cxt.fillRect(i * stepWith + can.width * 0.49, 150, 10, -value + 1);// 0.49 0.51 用以错位
-        cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 150, -10, -value + 1);
+        cxt.fillRect(i * stepWith + can.width * 0.49, 160, 10, -value + 1);// 0.49 0.51 用以错位
+        cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 160, -10, -value + 1);
         cxt.fillStyle = colorf;
-        cxt.fillRect(i * stepWith + can.width * 0.49, 150, 10, value * 0.6 + 1);
-        cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 150, -10, value * 0.6 + 1);
+        cxt.fillRect(i * stepWith + can.width * 0.49, 160, 10, value * 0.6 + 1);
+        cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 160, -10, value * 0.6 + 1);
       }
       cxt.closePath();
       requestAnimationFrame(draw);
@@ -128,16 +136,18 @@ class Page extends React.Component {
     let originX = this.refs.volumeSize.getBoundingClientRect().x
     let originWith = this.refs.volumeSize.getBoundingClientRect().width
     if (this.mouseInMark) {
-      let currentTime = ((e.clientX - originX) / originWith) * this.props.playInfo.songTime
-      this.updateS('playInfo.songTimeCurrent', currentTime)
+      let currentTime = ((e.clientX - originX) / originWith) * this.props.playInfo.duration
+      this.updateS('playInfo.currentTime', currentTime)
+      this.audio.currentTime = currentTime
     }
   }
 
   volumeSizeClick = (e) => {
     let originX = this.refs.volumeSize.getBoundingClientRect().x
     let originWith = this.refs.volumeSize.getBoundingClientRect().width
-    let currentTime = ((e.clientX - originX) / originWith) * this.props.playInfo.songTime
-    this.updateS('playInfo.songTimeCurrent', currentTime)
+    let currentTime = ((e.clientX - originX) / originWith) * this.props.playInfo.duration
+    this.updateS('playInfo.currentTime', currentTime)
+    this.audio.currentTime = currentTime
   }
 
   volumeCurrentMarkMouseDown = (e) => {
@@ -276,12 +286,12 @@ class Page extends React.Component {
         <div className={styles.outer}>
           <div className={styles.inner}>
             <div className={styles.header}>
-              <div className={styles.title}>音乐小屋</div>
+              <div className={styles.title}>WELCOME</div>
               <div className={styles.search}>
-                <input type="text" placeholder="请输入要搜索的歌曲..." id="searchInput"/>
-                <a href="javascript:void(0)" title="搜索" id="search" className="iconfont ic"/>
+                <input type="text" placeholder="请输入要搜索的歌曲..."/>
+                <a href="javascript:void(0)" title="搜索" id="search"/>
               </div>
-              <div className={styles.close}>X</div>
+              <div className={styles.close}><i className={'fa fa-close'}></i></div>
             </div>
             <div className={styles.musicBody}>
               <div className={styles.left}>
@@ -311,15 +321,20 @@ class Page extends React.Component {
             </div>
             <div className={styles.footer}>
               <div className={styles.playOpt}>
-                <div onClick={this.prePlay}>上</div>
+                <div onClick={this.prePlay}><i className={'fa fa-step-backward'}></i></div>
                 <div onClick={(e) => {
                   this.updateS('playInfo.playStatus', !this.props.playInfo.playStatus)
-                }}>中
+                }}><i className={`fa fa-2x ${this.props.playInfo.playStatus ? 'fa-pause' : 'fa-play'}`}></i>
                 </div>
-                <div onClick={this.nextPlay}>下</div>
+                <div onClick={this.nextPlay}><i className={'fa fa-step-forward'}></i></div>
               </div>
               <div className={styles.songMiniBill}>小海报</div>
-              <div className={styles.volumeSwitch}>静音与否</div>
+              <div className={styles.volumeSwitch} onClick={(n, i) => {
+                if (this.props.settings.volumeOpen) {
+                  this.volumeValue = this.audio.volume
+                }
+                this.assignS('settings.volumeOpen', !this.props.settings.volumeOpen)
+              }}><i className={`fa ${this.props.settings.volumeOpen ? 'fa-volume-up' : 'fa-volume-off'}`}></i></div>
               <div className={styles.volumeSize} ref={'volumeSize'}
                    onMouseMove={this.volumeSizeMouseMove} onMouseUp={this.volumeSizeMouseUp} onClick={this.volumeSizeClick}>
                 {/*标志线*/}
@@ -332,10 +347,10 @@ class Page extends React.Component {
                 <div className={styles.songNameMini}>{playInfo.name}</div>
                 <div className={styles.time}>{this.timeFormat(playInfo.currentTime)}/{this.timeFormat(playInfo.duration)}</div>
               </div>
-              <div className={styles.collect}>收藏</div>
+              <div className={styles.collect}><i className={'fa fa-heart-o'}></i></div>
 
             </div>
-            <audio ref="audio" src={this.props.playInfo.src} ossorigin="anonymous"></audio>
+            <audio ref="audio" src={this.props.playInfo.src} crossOrigin="anonymous"></audio>
           </div>
         </div>
       </DTitle>
