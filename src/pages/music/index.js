@@ -32,7 +32,6 @@ class Page extends React.Component {
 
     this.audio.addEventListener("timeupdate", () => {
       this.assignS('playInfo', {currentTime: this.audio.currentTime, duration: this.audio.duration})
-
     });
 
     this.audio.addEventListener("ended", () => {
@@ -108,14 +107,14 @@ class Page extends React.Component {
 
     let can = this.refs.canvasVoice;
     let cxt = can.getContext("2d");
-    let color = cxt.createLinearGradient(can.width * 0.5, 0, can.width * 0.5, 150);
-    color.addColorStop(0, "#00d1ff");
-    color.addColorStop(0.5, "#0095ff");
-    color.addColorStop(1, "#0065ff");
-    let colorf = cxt.createLinearGradient(can.width * .5, 150, can.width * .5, 250);
-    colorf.addColorStop(0, "#00d1ff");
-    colorf.addColorStop(0.5, "#0095ff");
-    colorf.addColorStop(1, "#0065ff");
+    let colorUp = cxt.createLinearGradient(can.width * 0.5, 0, can.width * 0.5, 150);
+    colorUp.addColorStop(0, "#00d1ff");
+    colorUp.addColorStop(0.5, "#0095ff");
+    colorUp.addColorStop(1, "#0065ff");
+    let colorDown = cxt.createLinearGradient(can.width * .5, 150, can.width * .5, 250);
+    colorDown.addColorStop(0, "#00d1ff");
+    colorDown.addColorStop(0.5, "#0095ff");
+    colorDown.addColorStop(1, "#0065ff");
     draw();
 
     function draw() {
@@ -135,10 +134,10 @@ class Page extends React.Component {
       let stepWith = 0.38
       for (let i = 0; i < num; i++) {
         let value = (byteData[step * i]) / 2;
-        cxt.fillStyle = color;
+        cxt.fillStyle = colorUp;
         cxt.fillRect(i * stepWith + can.width * 0.49, 160, 10, -value + 1);// 0.49 0.51 用以错位
         cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 160, -10, -value + 1);
-        cxt.fillStyle = colorf;
+        cxt.fillStyle = colorDown;
         cxt.fillRect(i * stepWith + can.width * 0.49, 160, 10, value * 0.6 + 1);
         cxt.fillRect(can.width * 0.51 - (i - 1) * stepWith, 160, -10, value * 0.6 + 1);
       }
@@ -276,10 +275,10 @@ class Page extends React.Component {
   * 将lrc格式化输出
   * [{time:'11',value:'我有花一朵'}, ... ]
   * */
-  formatLrc = (lrcStr) => {
+  formatLrc = (lrcStr = '') => {
     return lrcStr.split(/\[/gi).map((n, i) => {
       let timeValueArr = n.split(/\]/) // ['00:11.53', '我有花一朵']
-      if (timeValueArr.length === 2 && /^\d{2}\:\d{2}\.\d{2}$/.test(timeValueArr[0])) {
+      if (timeValueArr.length === 2 && /^\d{2}\:\d{2}\.\d{2,4}$/.test(timeValueArr[0])) {
         let timeArr = timeValueArr[0].split(".")[0].split(":");
         return {
           time: timeArr[0] * 60 + timeArr[1] * 1,
@@ -294,6 +293,15 @@ class Page extends React.Component {
   }
 
 
+  songSearchThrottle = _.throttle((value) => {
+    this.xhr('songSearch', value).then((data) => {
+      let songs = _.slice(_.get(data, 'data.result.songs', []), 0, 10)
+      this.setState({
+        songSearchList: songs
+      })
+    })
+  }, 1000)
+
   /*
   * 歌曲搜索
   * */
@@ -301,12 +309,7 @@ class Page extends React.Component {
     this.setState({
       songSearchValue: value
     })
-    this.xhr('songSearch', value).then((data) => {
-      let songs = _.slice(_.get(data, 'data.result.songs', []), 0, 10)
-      this.setState({
-        songSearchList: songs
-      })
-    })
+    this.songSearchThrottle(value)
   }
 
   /*
@@ -316,6 +319,43 @@ class Page extends React.Component {
     this.setState({
       songSearchValue: value
     })
+    let selectInfo = _.find(this.state.songSearchList, {id: Number(value)})
+
+
+    let resultInfo = {
+      picUrl: selectInfo.al.picUrl,
+      id: selectInfo.id,
+      name: selectInfo.name,
+      singer: _.map(selectInfo.ar, 'name').join(' ')
+    }
+
+    this.xhr('songGetWithId', value).then((data) => {
+      resultInfo.src = _.get(data, 'data.data[0].url')
+
+      if (!resultInfo.src) {
+        console.error(`无此歌曲播放地址`);
+        return
+      }
+      this.xhr('songLyricGetWithId', value).then((lyricRespnse) => {
+        console.log(`lyricRespnse`, lyricRespnse);
+        resultInfo.lrc = _.get(lyricRespnse, 'data.lrc.lyric', '[00:00.00]未找到歌词')
+        this.props.defaultList.unshift(resultInfo)
+        this.updateS('defaultList', this.props.defaultList)
+      }).catch((e) => {
+        this.props.defaultList.unshift(resultInfo)
+        this.updateS('defaultList', this.props.defaultList)
+      })
+    })
+  }
+
+  /*
+  * 歌曲收藏
+  * */
+  songCollect = (n, i) => {
+    let index = _.findIndex(this.props.defaultList, {name: this.props.playInfo.name})
+    let resultCollect = !this.props.playInfo.collect
+    this.updateS(`defaultList[${index}].collect`, resultCollect)
+    this.updateS('playInfo.collect', resultCollect)
   }
 
   render() {
@@ -380,12 +420,14 @@ class Page extends React.Component {
               <div className={styles.playOpt}>
                 <div onClick={this.prePlay}><i className={'fa fa-step-backward'}></i></div>
                 <div onClick={(e) => {
-                  this.updateS('playInfo.playStatus', !this.props.playInfo.playStatus)
-                }}><i className={`fa fa-2x ${this.props.playInfo.playStatus ? 'fa-pause' : 'fa-play'}`}></i>
+                  this.updateS('playInfo.playStatus', !playInfo.playStatus)
+                }}><i className={`fa fa-2x ${playInfo.playStatus ? 'fa-pause' : 'fa-play'}`}></i>
                 </div>
                 <div onClick={this.nextPlay}><i className={'fa fa-step-forward'}></i></div>
               </div>
-              <div className={styles.songMiniBill}>小海报</div>
+              <div className={styles.songMiniBill}>
+                <img src={playInfo.picUrl} alt=""/>
+              </div>
               <div className={styles.volumeSwitch} onClick={(n, i) => {
                 if (this.props.settings.volumeOpen) {
                   this.volumeValue = this.audio.volume
@@ -404,8 +446,9 @@ class Page extends React.Component {
                 <div className={styles.songNameMini}>{playInfo.name}</div>
                 <div className={styles.time}>{this.timeFormat(playInfo.currentTime)}/{this.timeFormat(playInfo.duration)}</div>
               </div>
-              <div className={styles.collect}><i className={'fa fa-heart-o'}></i></div>
-
+              <div className={styles.collect} onClick={this.songCollect}>
+                <i className={`fa ${this.props.playInfo.collect ? 'fa-heart' : 'fa-heart-o'}`}></i>
+              </div>
             </div>
             <audio ref="audio" src={this.props.playInfo.src} crossOrigin="anonymous"></audio>
           </div>
