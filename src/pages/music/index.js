@@ -5,7 +5,7 @@ import _ from 'lodash'
 import DTitle from 'react-document-title'
 import font from 'font-awesome/css/font-awesome.min.css'
 
-import {AutoComplete, Input, Icon,} from 'antd';
+import {AutoComplete, Input, Icon, message} from 'antd';
 
 @connect((state) => {
   return {
@@ -293,6 +293,9 @@ class Page extends React.Component {
   }
 
 
+  /*
+  * 歌曲搜索节流
+  * */
   songSearchThrottle = _.throttle((value) => {
     this.xhr('songSearch', value).then((data) => {
       let songs = _.slice(_.get(data, 'data.result.songs', []), 0, 10)
@@ -331,20 +334,33 @@ class Page extends React.Component {
 
     this.xhr('songGetWithId', value).then((data) => {
       resultInfo.src = _.get(data, 'data.data[0].url')
-
       if (!resultInfo.src) {
-        console.error(`无此歌曲播放地址`);
+        message.error(`抱歉,无此歌曲播放地址`);
         return
       }
       this.xhr('songLyricGetWithId', value).then((lyricRespnse) => {
-        console.log(`lyricRespnse`, lyricRespnse);
         resultInfo.lrc = _.get(lyricRespnse, 'data.lrc.lyric', '[00:00.00]未找到歌词')
-        this.props.defaultList.unshift(resultInfo)
-        this.updateS('defaultList', this.props.defaultList)
+        this.playAutoSong(resultInfo)
       }).catch((e) => {
-        this.props.defaultList.unshift(resultInfo)
-        this.updateS('defaultList', this.props.defaultList)
+        resultInfo.lrc = '[00:00.00]未找到歌词'
+        this.playAutoSong(resultInfo)
       })
+    })
+  }
+
+  /*
+  * 直接播放 某个列表中不存在的 歌曲
+  * */
+  playAutoSong = (playInfo) => {
+    _.each(this.props.defaultList, (n, i) => {
+      n.active = false
+    })
+    this.updateS('defaultList', this.props.defaultList)
+    this.updateS('playInfo', {
+      currentTime: 0,
+      duration: 0,
+      playStatus: true,
+      ...playInfo
     })
   }
 
@@ -358,14 +374,20 @@ class Page extends React.Component {
     this.updateS('playInfo.collect', resultCollect)
   }
 
+  /*
+  * 当前播放歌曲添加至播放列表
+  * */
+  songAdd = (playInfo) => {
+    playInfo.active = true
+    this.props.defaultList.push(_.omit(playInfo, ['currentTime', 'duration', 'playStatus',]))
+    this.updateS('defaultList', this.props.defaultList)
+  }
+
   render() {
     console.log(`this.props`, this.props);
     let playInfo = this.props.playInfo
     let formatLrcObj = this.formatLrc(playInfo.lrc)
-
     let lrcCurrentIndex = _.sortedIndex(_.map(formatLrcObj, 'time'), playInfo.currentTime * 1)
-
-
     return (
       <DTitle title='My Music App' className={styles.normal}>
         <div className={styles.outer}>
@@ -446,7 +468,11 @@ class Page extends React.Component {
                 <div className={styles.songNameMini}>{playInfo.name}</div>
                 <div className={styles.time}>{this.timeFormat(playInfo.currentTime)}/{this.timeFormat(playInfo.duration)}</div>
               </div>
-              <div className={styles.collect} onClick={this.songCollect}>
+              <div className={styles.collect} onClick={this.songAdd.bind(this, playInfo)} title={'添加至播放列表'}
+                   style={{visibility: _.find(this.props.defaultList, {id: playInfo.id}) ? 'hidden' : ''}}>
+                <i className={`fa fa-plus-square-o`}></i>
+              </div>
+              <div className={styles.collect} onClick={this.songCollect} title={'收藏'}>
                 <i className={`fa ${this.props.playInfo.collect ? 'fa-heart' : 'fa-heart-o'}`}></i>
               </div>
             </div>
