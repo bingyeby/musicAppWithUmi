@@ -1,5 +1,5 @@
 
-# 一个机遇umi创建的音乐webApp
+# 一个基于umi创建的音乐webApp
 
 ## 预览
 ![预览](./preview.png)
@@ -13,7 +13,7 @@ https://umijs.org/zh/guide/create-umi-app.html
 
     网易云音乐 API 
     https://api.imjad.cn/cloudmusic.md
-    https://binaryify.github.io/NeteaseCloudMusicApi/#/
+    https://binaryify.github.io/NeteaseCloudMusicApi/#/gi
 
 ## Font Awesome
 [一套绝佳的图标字体库和CSS框架](http://fontawesome.dashgame.com/)
